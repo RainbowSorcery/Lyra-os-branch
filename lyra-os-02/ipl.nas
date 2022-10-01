@@ -1,6 +1,9 @@
 ; hello-os
 ; TAB=4
 
+; 读取柱面数
+CYLS    EQU 79
+
 org 0x7c00
 
 ; 以下は標準的なFAT12フォーマットフロッピーディスクのための記述
@@ -38,6 +41,8 @@ entry:
     mov ch, 0
     mov dh, 0
     mov cl, 2
+
+readLoop:
     mov si, 0
 
 retry: 
@@ -46,15 +51,31 @@ retry:
     mov bx, 0
     mov dl, 0x00
     int 0x13
-    jnc ok
+    jnc next
     add si, 1
     cmp si, 5
-    mov al, [si]
     jae error
     mov ah, 0x00
     mov dl, 0x00
     int 0x13
     jmp retry
+
+next:
+    mov ax, es
+    add ax, 0x0020
+    mov es, ax
+    add cl, 1
+    cmp cl, 18
+    jbe readLoop
+    mov cl, 1
+    add dh, 1
+    cmp dh, 2
+    jb readLoop
+    mov dh, 0
+    add ch, 1
+    cmp ch, CYLS
+
+    jb readLoop
 
 error: 
     mov si, errorMsg
@@ -69,22 +90,12 @@ putloop:
     int 0x10
     jmp putloop
 
-ok: 
-    mov si, okMsg
-    jmp putloop
-
 fin: 
-    hlt
-    jmp fin
+    jmp 0xc200
 
 errorMsg:
     DB 0x0a, 0x0a
     DB "load error."
-    DB 0
-
-okMsg:
-    DB 0x0a, 0x0a
-    DB "load ok."
     DB 0
 
     RESB 0x7dfe-$
