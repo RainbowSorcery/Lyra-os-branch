@@ -2,7 +2,7 @@
 ; TAB=4
 
 ; 读取柱面数
-CYLS    EQU 79
+CYLS    EQU 10
 
 org 0x7c00
 
@@ -97,6 +97,5 @@ errorMsg:
     DB 0x0a, 0x0a
     DB "load error."
     DB 0
-
-    RESB 0x7dfe-$
+     TIMES 0x1fe-($-$$) DB 0
     DB 0x55, 0xaa

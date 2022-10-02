@@ -1,21 +1,22 @@
-TOOLPATH = 	D:\os\30daysOS\tolset\z_tools
-
-
 # 文件生成规则
-asm : ipl.nas MakeFile
-	nask ipl.nas ipl.bin ipl.lst
+asm : ipl.nas 
+	nasm ipl.nas -o ipl.bin
+	nasm lyra-os.nas -o lyra-os.sys
 
 img : ipl.bin lyra-os.sys
-	edimg.exe   imgin:D:\os\30daysOS\tolset\z_tools\fdimg0at.tek wbinimg src:ipl.bin len:512 from:0 to:0 copy from:lyra-os.sys to:@: imgout:lyra-os.img
+	dd if=/dev/zero of=ipl.bin bs=512 seek=1 skip=1 count=2879 
+	mv ipl.bin lyra-os.img
+	sudo mount lyra-os.img /mnt
+	sudo cp lyra-os.sys /mnt
+	sudo umount /mnt
 
 build : 
-	make.exe  asm
-	make.exe  img
-run : lyra-os.img Makefile
-	copy lyra-os.img $(TOOLPATH)\qemu\fdimage0.bin
-	make.exe -C $(TOOLPATH)\qemu
+	make  asm
+	make  img
+run : lyra-os.img 
+	qemu-system-i386 -fda lyra-os.img
 
 clear :
-	del ipl.bin
-	del lyra-os.img
-	del ipl.lst
+	rm -rf ipl.bin
+	rm -rf lyra-os.img
+	rm -rf lyra-os.sys
