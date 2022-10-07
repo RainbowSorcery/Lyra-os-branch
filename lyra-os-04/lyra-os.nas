@@ -1,0 +1,18 @@
+org 0xc200
+
+
+ mov al, 0x13
+ mov ah, 0x00
+ int 0x10
+ mov byte[0x0ff2], 8
+mov word[0x0ff4], 320
+mov word[0x0ff6], 200
+mov dword[0x0ff8], 0x000a0000
+
+; mov ah, 0x02
+; int 0x16
+; mov [0x0ff1], al
+
+fin:
+	hlt
+	jmp fin

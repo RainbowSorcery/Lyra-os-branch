@@ -1,0 +1,40 @@
+TOOLPATH = D:\os\30daysOS\tolset\z_tools\
+INCPATH  = D:\os\30daysOS\tolset\z_tools\haribote\
+
+# 文件生成规则
+asm : ipl.nas
+	nask ipl.nas ipl.bin
+	nask asmhead.nas lyra-os.bin
+
+img : 
+	edimg imgin:D:\os\30daysOS\tolset\z_tools\fdimg0at.tek wbinimg src:ipl.bin len:512 from:0 to:0 copy from:lyra-os.sys to:@: imgout:lyra-os.img
+
+build-obj:
+	cc1 -I$(INCPATH) -Os -Wall -quiet -o bootpack.gas bootpack.c
+	GAS2NASK bootpack.gas bootpack.nas
+	nask bootpack.nas bootpack.obj bootpack.lst
+	nask naskfunc.nas naskfunc.obj naskfuns.lst
+	obj2bim @D:\os\30daysOS\tolset\z_tools\haribote\haribote.rul out:bootpack.bim stack:3136k map:bootpack.map bootpack.obj naskfunc.obj 
+	BIM2HRB bootpack.bim bootpack.hrb 0
+	copy /B lyra-os.bin+bootpack.hrb lyra-os.sys
+build : 
+	make  asm
+	make build-obj
+	make  img
+
+run :
+	make clear
+	make build
+	copy lyra-os.img D:\os\30daysOS\tolset\z_tools\qemu\fdimage0.bin
+	$(MAKE) -C D:\os\30daysOS\tolset\z_tools\qemu
+
+clear :
+	del *.sys
+	del *.bin
+	del *.obj
+	del *.map
+	del *.hrb
+	del *.gas
+	del *.bim
+	del *.lst
+	del *.img
