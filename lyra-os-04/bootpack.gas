@@ -128,35 +128,33 @@ _boxfill8:
 	movl	%esp, %ebp
 	pushl	%edi
 	pushl	%esi
+	movl	16(%ebp), %edx
+	movl	12(%ebp), %ecx
 	pushl	%ebx
-	pushl	%esi
-	movl	24(%ebp), %ecx
-	movl	28(%ebp), %edi
-	cmpl	32(%ebp), %ecx
-	jg	L22
-	movl	12(%ebp), %ebx
-	imull	%ecx, %ebx
+	movl	20(%ebp), %edi
+	movl	24(%ebp), %esi
+	movb	28(%ebp), %bl
+	cmpl	%edx, %ecx
+	jge	L22
+	movl	%ecx, %eax
+	subl	%ecx, %edx
+	imull	$320, %eax, %eax
+	addl	8(%ebp), %eax
+	movl	%edx, %ecx
 L20:
-	movl	20(%ebp), %edx
-	cmpl	%edi, %edx
-	jg	L24
-	movl	8(%ebp), %eax
-	addl	%ebx, %eax
-	movl	%eax, -16(%ebp)
-	leal	(%eax,%edx), %eax
+	movl	%edi, %edx
+	cmpl	%esi, %edi
+	jge	L24
 L19:
+	movb	%bl, (%edx,%eax)
 	incl	%edx
-	movb	$14, (%eax)
-	incl	%eax
-	cmpl	%edi, %edx
-	jle	L19
+	cmpl	%esi, %edx
+	jl	L19
 L24:
-	incl	%ecx
-	addl	12(%ebp), %ebx
-	cmpl	32(%ebp), %ecx
-	jle	L20
+	addl	$320, %eax
+	decl	%ecx
+	jne	L20
 L22:
-	popl	%ebx
 	popl	%ebx
 	popl	%esi
 	popl	%edi
@@ -169,23 +167,17 @@ _HariMain:
 	pushl	%ebp
 	movl	%esp, %ebp
 	call	_init_palette
-	xorl	%eax, %eax
-L30:
-	movb	$14, 687360(%eax)
-	incl	%eax
-	cmpl	$319, %eax
-	jle	L30
-	movb	$0, 655360
-	movl	$655840, %edx
-	movl	$198, %eax
-L35:
-	movb	$15, (%edx)
-	addl	$320, %edx
-	decl	%eax
-	jns	L35
-L36:
+	pushl	$2
+	pushl	$150
+	pushl	$120
+	pushl	$100
+	pushl	$50
+	pushl	$655360
+	call	_boxfill8
+	addl	$24, %esp
+L26:
 	call	_io_hlt
-	jmp	L36
+	jmp	L26
 	.def	_io_hlt;	.scl	2;	.type	32;	.endef
 	.def	_io_store_eflags;	.scl	2;	.type	32;	.endef
 	.def	_io_out8;	.scl	2;	.type	32;	.endef

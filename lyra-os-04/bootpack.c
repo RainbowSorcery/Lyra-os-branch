@@ -60,33 +60,36 @@ void init_palette(void) {
 	return;
 }
 
-void boxfill8(unsigned char *varm, int xsize, unsigned char c, int x0, int y0, int x1, int y1) {
-	int x, y;
-	for (y = y0; y <= y1; y++) {
-		for (x = x0; x <= x1; x++)
-			varm[y * xsize + x] = 0xe;
+void boxfill8(unsigned char *varm, int x0, int y0, int x1, int y1, char color) {
+	int i, j;
+
+	for (i = x0; i < y0; i++) {
+		for (j = x1; j < y1; j++) {
+			*(varm + i * 320 + j) = color;
+		}
 	}
+
 	return;
 }
 
 void HariMain(void) {
 	int i; 
+	int j;
 	char *p = (char *)0xa0000;
 
 	// 初始化调色板
 	init_palette();
 
-	int x = 100;
-	int y = 0;
+	boxfill8(p, 50, 100, 120, 150, 0x02);
+	// boxfill8(p, 70, 50, 170, 150, 0x0e);
+	// boxfill8(p, 120, 80, 220, 180, 0xf);
 
-	for (i = 0; i < 320; i++) {
-		*(p + 100 * 320 + i) = 0xe;
-	}
+	// 	for (i = 50; i < 100; i++) {
+	// 	for (j = 100; j < 150; j++) {
+	// 		*(p + i * 320 + j) = 0x1;
+	// 	}
+	// }
 
-	*p = (char *)0xa0000;
-	for (i = 1; i < 200; i++) {
-		*(p + i * 320 + 160) = 0xf;	
-	}
 
 	for (;;) {
 		io_hlt();
