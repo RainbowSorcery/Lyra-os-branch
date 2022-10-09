@@ -77,8 +77,8 @@ void HariMain(void) {
 	short *binfo_scrnx = (short *) 0x0ff4;
 	short *binfo_scrny = (short *) 0x0ff6;
 
-	int i; 
-	int j;
+	// int i; 
+	// int j;
 	char *p = *binfo_vram;
 
 	short x_size = *binfo_scrnx;
