@@ -73,29 +73,30 @@ void boxfill8(unsigned char *varm, int x0, int y0, int x1, int y1, char color) {
 }
 
 void HariMain(void) {
+	int *binfo_vram = (int *) 0x0ff8;
+	short *binfo_scrnx = (short *) 0x0ff4;
+	short *binfo_scrny = (short *) 0x0ff6;
+
 	int i; 
 	int j;
-	char *p = (char *)0xa0000;
+	char *p = *binfo_vram;
+
+	short x_size = *binfo_scrnx;
+	short y_size = *binfo_scrny;
 
 	// 初始化调色板
 	init_palette();
 
 
-	boxfill8(p, 0, 0, 320, 180, 0x0f);
-	boxfill8(p, 0, 180, 320, 200, 0x08);
-	boxfill8(p, 0, 181, 320, 182, 0x07);
-
-	boxfill8(p, 2, 185, 40, 186, 0x07);
-
-	boxfill8(p, 3, 194, 40, 195, 0x0e);
-
-	boxfill8(p, 2, 185, 3, 195, 0x07);
-	
-	boxfill8(p, 40, 185, 41, 196, 0x00);
-
-	boxfill8(p, 2, 195, 40, 196, 0x00);
-
-	boxfill8(p, 40, 194, 40, 195, 0x05);
+	boxfill8(p, 0, 0, x_size, 180, 0x0f);
+	boxfill8(p, 0, y_size - 20, x_size, 200, 0x08);
+	boxfill8(p, 0, y_size - 19, x_size, 182, 0x07);
+	boxfill8(p, 2, y_size - 15, x_size - 280, 186, 0x07);
+	boxfill8(p, 3, y_size - 6, x_size - 280, 195, 0x0e);
+	boxfill8(p, 2, y_size - 15, x_size - 317, 195, 0x07);
+	boxfill8(p, 40, y_size - 15, x_size - 279, 196, 0x00);
+	boxfill8(p, 2, y_size - 5, 40, x_size - 124, 0x00);
+	boxfill8(p, 40, y_size - 6, 40, x_size - 123, 0x05);
 
 
 	// 	for (i = 50; i < 100; i++) {
