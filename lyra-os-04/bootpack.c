@@ -44,7 +44,7 @@ void init_palette(void) {
 		0xff, 0x00, 0xff,	/*  5:亮紫 */
 		0x00, 0xff, 0xff,	/*  6:浅亮蓝 */
 		0xff, 0xff, 0xff,	/*  7:白 */
-		// 0xc6, 0xc6, 0xc6,	/*  8:亮灰 */
+		0xc6, 0xc6, 0xc6,	/*  8:亮灰 */
 		// 0x84, 0x00, 0x00,	/*  9:暗红 */
 		0x00, 0x84, 0x00,	/* 10:暗绿 */
 		0x84, 0x84, 0x00,	/* 11:暗黄 */
@@ -53,7 +53,7 @@ void init_palette(void) {
 		0x00, 0x84, 0x84,	/* 14:浅暗蓝 */
 		0x84, 0x84, 0x84,	/* 15:暗灰 */
 		0xb6, 0xa3, 0xbc,	/* 16:dreamer鬃毛颜色 */
-		0xe6, 0xE6, 0xFA
+		// 0xaf, 0xdf, 0xef
 	};
 	set_palette(0, 16, table_rgb);
 
@@ -63,9 +63,9 @@ void init_palette(void) {
 void boxfill8(unsigned char *varm, int x0, int y0, int x1, int y1, char color) {
 	int i, j;
 
-	for (i = x0; i < y0; i++) {
-		for (j = x1; j < y1; j++) {
-			*(varm + i * 320 + j) = color;
+	for (i = y0; i < y1; i++) {
+		for (j = x0; j < x1; j++) {
+			varm[i * 320 + j] = color;
 		}
 	}
 
@@ -80,9 +80,23 @@ void HariMain(void) {
 	// 初始化调色板
 	init_palette();
 
-	boxfill8(p, 50, 100, 120, 150, 0x02);
-	// boxfill8(p, 70, 50, 170, 150, 0x0e);
-	// boxfill8(p, 120, 80, 220, 180, 0xf);
+
+	boxfill8(p, 0, 0, 320, 180, 0x0f);
+	boxfill8(p, 0, 180, 320, 200, 0x08);
+	boxfill8(p, 0, 181, 320, 182, 0x07);
+
+	boxfill8(p, 2, 185, 40, 186, 0x07);
+
+	boxfill8(p, 3, 194, 40, 195, 0x0e);
+
+	boxfill8(p, 2, 185, 3, 195, 0x07);
+	
+	boxfill8(p, 40, 185, 41, 196, 0x00);
+
+	boxfill8(p, 2, 195, 40, 196, 0x00);
+
+	boxfill8(p, 40, 194, 40, 195, 0x05);
+
 
 	// 	for (i = 50; i < 100; i++) {
 	// 	for (j = 100; j < 150; j++) {
