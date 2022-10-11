@@ -5,6 +5,8 @@ int io_load_eflags(void);
 void io_store_eflags(int eflags);
 void io_cli();
 
+extern char font[4096];
+
 struct BootInfo
 {
 	char cyls, leds, vmode, reserve;
@@ -46,7 +48,7 @@ void init_palette(void)
 		0xff, 0x00, 0x00, /*  1:梁红 */
 		0x00, 0xff, 0x00, /*  2:亮绿 */
 		0xff, 0xff, 0x00, /*  3:亮黄 */
-		0x00, 0x00, 0xff, /*  4:亮蓝 */
+		0x99, 0xdd, 0xcc, /*  4:淡蓝 */
 		0xff, 0x00, 0xff, /*  5:亮紫 */
 		0x00, 0xff, 0xff, /*  6:浅亮蓝 */
 		0xff, 0xff, 0xff, /*  7:白 */
@@ -59,7 +61,6 @@ void init_palette(void)
 		0x00, 0x84, 0x84, /* 14:浅暗蓝 */
 		0x84, 0x84, 0x84, /* 15:暗灰 */
 		0xb6, 0xa3, 0xbc, /* 16:dreamer鬃毛颜色 */
-						  // 0xaf, 0xdf, 0xef
 	};
 	set_palette(0, 16, table_rgb);
 
@@ -88,6 +89,9 @@ void putfont8(char *vram, int xsize, int x, int y, char c, char *font)
 	for (i = 0; i < 16; i++)
 	{
 		d = font[i];
+		// 第一位，如果第一位为1那么就在该位置上色
+		// 0x80=10000000
+		// 0x40=1000000依次类推
 		if ((d & 0x80) != 0)
 		{
 			vram[(y + i) * xsize + x + 0] = c;
@@ -128,15 +132,15 @@ void putfont8(char *vram, int xsize, int x, int y, char c, char *font)
 void init_screen(char *wram, int x_size, int y_size)
 {
 
-	boxfill8(p, 0, 0, x_size, 180, 0x0f);
-	boxfill8(p, 0, y_size - 20, x_size, 200, 0x08);
-	boxfill8(p, 0, y_size - 19, x_size, 182, 0x07);
-	boxfill8(p, 2, y_size - 15, x_size - 280, 186, 0x07);
-	boxfill8(p, 3, y_size - 6, x_size - 280, 195, 0x0e);
-	boxfill8(p, 2, y_size - 15, x_size - 317, 195, 0x07);
-	boxfill8(p, 40, y_size - 15, x_size - 279, 196, 0x00);
-	boxfill8(p, 2, y_size - 5, 40, x_size - 124, 0x00);
-	boxfill8(p, 40, y_size - 6, 40, x_size - 123, 0x05);
+	boxfill8(wram, 0, 0, x_size, 180, 0x0f);
+	boxfill8(wram, 0, y_size - 20, x_size, 200, 0x08);
+	boxfill8(wram, 0, y_size - 19, x_size, 182, 0x07);
+	boxfill8(wram, 2, y_size - 15, x_size - 280, 186, 0x07);
+	boxfill8(wram, 3, y_size - 6, x_size - 280, 195, 0x0e);
+	boxfill8(wram, 2, y_size - 15, x_size - 317, 195, 0x07);
+	boxfill8(wram, 40, y_size - 15, x_size - 279, 196, 0x00);
+	boxfill8(wram, 2, y_size - 5, 40, x_size - 124, 0x00);
+	boxfill8(wram, 40, y_size - 6, 40, x_size - 123, 0x05);
 }
 
 void HariMain(void)
@@ -156,11 +160,23 @@ void HariMain(void)
 
 	init_screen(bootInfo->wram, bootInfo->scrnx, bootInfo->scrny);
 
-	static char font_A[16] = {
-		0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
-		0x24, 0x7E, 0x42, 0x42, 0x42, 0xE7, 0x00, 0x00};
+	static char font_A[16] = {	
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x08, 0x08, 0x08, 0x08, 0x08, 0x0F, 0x00, 0x00};
 
-	putfont8(p, x_size, 70, 150, 0x02, font_A);
+	putfont8(p, x_size, 8, 8, 0x04, font +  'H' * 16);
+	putfont8(p, x_size, 16, 8, 0x04, font +  'E' * 16);
+	putfont8(p, x_size, 24, 8, 0x04, font +  'L' * 16);
+	putfont8(p, x_size, 32, 8, 0x04, font +  'L' * 16);
+	putfont8(p, x_size, 40, 8, 0x04, font +  'O' * 16);
+	putfont8(p, x_size, 48, 8, 0x04, font +  ' ' * 16);
+	putfont8(p, x_size, 56, 8, 0x04, font +  'L' * 16);
+	putfont8(p, x_size, 64, 8, 0x04, font +  'Y' * 16);
+	putfont8(p, x_size, 72, 8, 0x04, font +  'R' * 16);
+	putfont8(p, x_size, 80, 8, 0x04, font +  'A' * 16);
+	putfont8(p, x_size, 88, 8, 0x04, font +  ' ' * 16);
+	putfont8(p, x_size, 96, 8, 0x04, font +  'O' * 16);
+	putfont8(p, x_size, 104, 8, 0x04, font +  'S' * 16);
 
 	// 	for (i = 50; i < 100; i++) {
 	// 	for (j = 100; j < 150; j++) {
