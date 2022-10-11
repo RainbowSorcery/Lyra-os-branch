@@ -1,3 +1,4 @@
+
 void io_hlt(void);
 void write_mem8(int addr, int data);
 void io_out8(int port, int data);
@@ -5,7 +6,6 @@ int io_load_eflags(void);
 void io_store_eflags(int eflags);
 void io_cli();
 
-extern char font[4096];
 
 struct BootInfo
 {
@@ -143,6 +143,16 @@ void init_screen(char *wram, int x_size, int y_size)
 	boxfill8(wram, 40, y_size - 6, 40, x_size - 123, 0x05);
 }
 
+void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s) {
+	extern char font[4096];
+	
+	while (*s != '\0') {
+		putfont8(vram, xsize, x, y, c, font + *s * 16);
+		x += 8;
+		s++;
+	}
+}
+
 void HariMain(void)
 {
 	struct BootInfo *bootInfo;
@@ -164,20 +174,13 @@ void HariMain(void)
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x08, 0x08, 0x08, 0x08, 0x08, 0x0F, 0x00, 0x00};
 
-	putfont8(p, x_size, 8, 8, 0x04, font +  'H' * 16);
-	putfont8(p, x_size, 16, 8, 0x04, font +  'E' * 16);
-	putfont8(p, x_size, 24, 8, 0x04, font +  'L' * 16);
-	putfont8(p, x_size, 32, 8, 0x04, font +  'L' * 16);
-	putfont8(p, x_size, 40, 8, 0x04, font +  'O' * 16);
-	putfont8(p, x_size, 48, 8, 0x04, font +  ' ' * 16);
-	putfont8(p, x_size, 56, 8, 0x04, font +  'L' * 16);
-	putfont8(p, x_size, 64, 8, 0x04, font +  'Y' * 16);
-	putfont8(p, x_size, 72, 8, 0x04, font +  'R' * 16);
-	putfont8(p, x_size, 80, 8, 0x04, font +  'A' * 16);
-	putfont8(p, x_size, 88, 8, 0x04, font +  ' ' * 16);
-	putfont8(p, x_size, 96, 8, 0x04, font +  'O' * 16);
-	putfont8(p, x_size, 104, 8, 0x04, font +  'S' * 16);
+	putfonts8_asc(p, x_size, 5, 5, 0x4, "Hello Lyra OS");
 
+	char s[100];
+
+
+	sprintf(s, "scrnx = %c", 'c');
+	putfonts8_asc(bootInfo->wram, bootInfo->scrnx, 16, 64, 0x1, s);
 	// 	for (i = 50; i < 100; i++) {
 	// 	for (j = 100; j < 150; j++) {
 	// 		*(p + i * 320 + j) = 0x1;
