@@ -1,16 +1,14 @@
 ; hello-os
 ; TAB=4
 
-; 读取柱面数 因为ES最大位0xffff bx最大位0xffff，ES:BX最大寻址范围位ES * 16 + bx = 1114095Byte = 1.062483787536621MB 但是实模式只能使用20条地址线，也就是寻址范围只能在1MB以内
-; todo 这个算法有问题
-; 若读入柱面等于56，因为我们是从0x820开始读的，ES = 0x0820, AX = 0 从0x8200地址开始读取 56个柱面 * 2个磁头 * 18个扇区 * 512字节 + 0x8200 = 1.01611328125M 超过1MB了，所有会报错
-CYLS    EQU 55
+; 读取柱面数
+CYLS    EQU 30
 
 org 0x7c00
 
 ; 以下は標準的なFAT12フォーマットフロッピーディスクのための記述
 		DB		0xeb, 0x4e, 0x90
-		DB		"LYRA IPL"		; ブートセクタの名前を自由に書いてよい（8バイト）
+		DB		"HELLOIPL"		; ブートセクタの名前を自由に書いてよい（8バイト）
 		DW		512				; 1セクタの大きさ（512にしなければいけない）
 		DB		1				; クラスタの大きさ（1セクタにしなければいけない）
 		DW		1				; FATがどこから始まるか（普通は1セクタ目からにする）
@@ -48,11 +46,8 @@ readLoop:
     mov si, 0
 
 retry: 
-    ; 读盘
     mov ah, 0x02
-    ; 同时连续处理扇区数
     mov al, 1
-    ; es:bx 缓冲地址
     mov bx, 0
     mov dl, 0x00
     int 0x13
@@ -62,7 +57,6 @@ retry:
     jae error
     mov ah, 0x00
     mov dl, 0x00
-    ; 调用读盘中断
     int 0x13
     jmp retry
 
@@ -97,7 +91,6 @@ putloop:
     jmp putloop
 
 fin: 
-    mov [0x0ff0],CH
     jmp 0xc200
 
 errorMsg:

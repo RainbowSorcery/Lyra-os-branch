@@ -13,6 +13,8 @@
     GLOBAL _io_load_eflags
     GLOBAL _io_store_eflags
     GLOBAL _io_sti
+    GLOBAL _load_gdtr
+    GLOBAL _load_idtr
 
 
 [SECTION .text]
@@ -50,3 +52,15 @@ _io_store_eflags:
 _io_sti:
     sti
     RET
+
+_load_gdtr:		; void load_gdtr(int limit, int addr);
+		MOV		AX,[ESP+4]		; limit
+		MOV		[ESP+6],AX
+		LGDT	[ESP+6]
+		RET
+
+_load_idtr:		; void load_idtr(int limit, int addr);
+		MOV		AX,[ESP+4]		; limit
+		MOV		[ESP+6],AX
+		LIDT	[ESP+6]
+		RET
