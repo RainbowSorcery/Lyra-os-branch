@@ -1,3 +1,4 @@
+
 void io_hlt(void);
 void write_mem8(int addr, int data);
 void io_out8(int port, int data);
@@ -6,6 +7,7 @@ void io_store_eflags(int eflags);
 void io_cli();
 void load_gdtr(int limit, int addr);
 void load_idtr(int limit, int addr);
+
 
 struct BootInfo
 {
@@ -117,7 +119,7 @@ void init_palette(void)
 		0xff, 0x00, 0x00, /*  1:梁红 */
 		0x00, 0xff, 0x00, /*  2:亮绿 */
 		0xff, 0xff, 0x00, /*  3:亮黄 */
-		0x00, 0x00, 0xff, /*  4:亮蓝 */
+		0x99, 0xdd, 0xcc, /*  4:淡蓝 */
 		0xff, 0x00, 0xff, /*  5:亮紫 */
 		0x00, 0xff, 0xff, /*  6:浅亮蓝 */
 		0xff, 0xff, 0xff, /*  7:白 */
@@ -130,7 +132,6 @@ void init_palette(void)
 		0x00, 0x84, 0x84, /* 14:浅暗蓝 */
 		0x84, 0x84, 0x84, /* 15:暗灰 */
 		0xb6, 0xa3, 0xbc, /* 16:dreamer鬃毛颜色 */
-						  // 0xaf, 0xdf, 0xef
 	};
 	set_palette(0, 16, table_rgb);
 
@@ -159,6 +160,9 @@ void putfont8(char *vram, int xsize, int x, int y, char c, char *font)
 	for (i = 0; i < 16; i++)
 	{
 		d = font[i];
+		// 第一位，如果第一位为1那么就在该位置上色
+		// 0x80=10000000
+		// 0x40=1000000依次类推
 		if ((d & 0x80) != 0)
 		{
 			vram[(y + i) * xsize + x + 0] = c;
@@ -208,6 +212,19 @@ void init_screen(char *wram, int x_size, int y_size)
 	boxfill8(wram, 40, y_size - 15, x_size - 279, 196, 0x00);
 	boxfill8(wram, 2, y_size - 5, 40, x_size - 124, 0x00);
 	boxfill8(wram, 40, y_size - 6, 40, x_size - 123, 0x05);
+<<<<<<< HEAD
+=======
+}
+
+void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s) {
+	extern char font[4096];
+	
+	while (*s != '\0') {
+		putfont8(vram, xsize, x, y, c, font + *s * 16);
+		x += 8;
+		s++;
+	}
+>>>>>>> aad89d8aadac75e4f1f4f6acb75bfdb976f2e05d
 }
 
 void HariMain(void)
@@ -227,14 +244,22 @@ void HariMain(void)
 
 	init_screen(bootInfo->wram, bootInfo->scrnx, bootInfo->scrny);
 
-	static char font_A[16] = {
-		0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
-		0x24, 0x7E, 0x42, 0x42, 0x42, 0xE7, 0x00, 0x00};
+	static char font_A[16] = {	
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x08, 0x08, 0x08, 0x08, 0x08, 0x0F, 0x00, 0x00};
 
-	putfont8(p, x_size, 70, 150, 0x02, font_A);
+	putfonts8_asc(p, x_size, 5, 5, 0x4, "Hello Lyra OS");
 
+<<<<<<< HEAD
 	init_gdtidt();
 	
+=======
+	char s[100];
+
+
+	sprintf(s, "scrnx = %c", 'c');
+	putfonts8_asc(bootInfo->wram, bootInfo->scrnx, 16, 64, 0x1, s);
+>>>>>>> aad89d8aadac75e4f1f4f6acb75bfdb976f2e05d
 	// 	for (i = 50; i < 100; i++) {
 	// 	for (j = 100; j < 150; j++) {
 	// 		*(p + i * 320 + j) = 0x1;
