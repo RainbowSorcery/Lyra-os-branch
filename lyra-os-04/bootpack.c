@@ -212,19 +212,19 @@ void init_screen(char *wram, int x_size, int y_size)
 	boxfill8(wram, 40, y_size - 15, x_size - 279, 196, 0x00);
 	boxfill8(wram, 2, y_size - 5, 40, x_size - 124, 0x00);
 	boxfill8(wram, 40, y_size - 6, 40, x_size - 123, 0x05);
-<<<<<<< HEAD
-=======
 }
 
-void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s) {
+void putfonts8_asc(char *varm, int szize, int x, int y, char c, unsigned char *s) 
+{
 	extern char font[4096];
-	
-	while (*s != '\0') {
-		putfont8(vram, xsize, x, y, c, font + *s * 16);
+
+	for (; *s != 0x00; s++) 
+	{
+		putfont8(varm, szize, x, y, c, font + *s * 16);
 		x += 8;
-		s++;
 	}
->>>>>>> aad89d8aadac75e4f1f4f6acb75bfdb976f2e05d
+
+	return;
 }
 
 void HariMain(void)
@@ -250,16 +250,8 @@ void HariMain(void)
 
 	putfonts8_asc(p, x_size, 5, 5, 0x4, "Hello Lyra OS");
 
-<<<<<<< HEAD
 	init_gdtidt();
 	
-=======
-	char s[100];
-
-
-	sprintf(s, "scrnx = %c", 'c');
-	putfonts8_asc(bootInfo->wram, bootInfo->scrnx, 16, 64, 0x1, s);
->>>>>>> aad89d8aadac75e4f1f4f6acb75bfdb976f2e05d
 	// 	for (i = 50; i < 100; i++) {
 	// 	for (j = 100; j < 150; j++) {
 	// 		*(p + i * 320 + j) = 0x1;

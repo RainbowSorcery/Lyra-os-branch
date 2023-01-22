@@ -14,14 +14,10 @@ build-obj:
 	GAS2NASK bootpack.gas bootpack.nas
 	nask bootpack.nas bootpack.obj bootpack.lst
 	nask naskfunc.nas naskfunc.obj naskfuns.lst
-<<<<<<< HEAD
-	obj2bim @C:\Project\os\30daysOS\tolset\z_tools\haribote\haribote.rul out:bootpack.bim stack:3136k map:bootpack.map bootpack.obj naskfunc.obj 
-=======
-	obj2bim @E:\os\30daysOS\tolset\z_tools\haribote\haribote.rul out:bootpack.bim stack:3136k map:bootpack.map bootpack.obj naskfunc.obj font.obj
->>>>>>> aad89d8aadac75e4f1f4f6acb75bfdb976f2e05d
+	obj2bim @C:\Project\os\30daysOS\tolset\z_tools\haribote\haribote.rul out:bootpack.bim stack:3136k map:bootpack.map bootpack.obj naskfunc.obj font.obj
 	BIM2HRB bootpack.bim bootpack.hrb 0
 	copy /B lyra-os.bin+bootpack.hrb lyra-os.sys
-build-font:
+build-font :
 	makefont hankaku.txt font.bin
 	bin2obj font.bin font.obj _font
 
