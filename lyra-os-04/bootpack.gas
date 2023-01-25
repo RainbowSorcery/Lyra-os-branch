@@ -1,0 +1,56 @@
+	.file	"bootpack.c"
+	.data
+_font_A.0:
+	.byte	0
+	.byte	0
+	.byte	0
+	.byte	0
+	.byte	0
+	.byte	0
+	.byte	0
+	.byte	0
+	.byte	8
+	.byte	8
+	.byte	8
+	.byte	8
+	.byte	8
+	.byte	15
+	.byte	0
+	.byte	0
+LC0:
+	.ascii "Hello Lyra OS\0"
+	.text
+	.balign 2
+.globl _HariMain
+	.def	_HariMain;	.scl	2;	.type	32;	.endef
+_HariMain:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%esi
+	pushl	%ebx
+	movl	4088, %esi
+	movswl	4084,%ebx
+	call	_init_palette
+	movswl	4086,%eax
+	pushl	%eax
+	movswl	4084,%eax
+	pushl	%eax
+	pushl	4088
+	call	_init_screen
+	pushl	$LC0
+	pushl	$4
+	pushl	$5
+	pushl	$5
+	pushl	%ebx
+	pushl	%esi
+	call	_putfonts8_asc
+	addl	$36, %esp
+	call	_init_gdtidt
+L2:
+	call	_io_hlt
+	jmp	L2
+	.def	_io_hlt;	.scl	2;	.type	32;	.endef
+	.def	_init_gdtidt;	.scl	2;	.type	32;	.endef
+	.def	_putfonts8_asc;	.scl	2;	.type	32;	.endef
+	.def	_init_screen;	.scl	2;	.type	32;	.endef
+	.def	_init_palette;	.scl	2;	.type	32;	.endef

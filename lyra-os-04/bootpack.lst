@@ -1,0 +1,61 @@
+     1 00000000                                 [FORMAT "WCOFF"]
+     2 00000000                                 [INSTRSET "i486p"]
+     3 00000000                                 [OPTIMIZE 1]
+     4 00000000                                 [OPTION 1]
+     5 00000000                                 [BITS 32]
+     6 00000000                                 	EXTERN	_init_palette
+     7 00000000                                 	EXTERN	_init_screen
+     8 00000000                                 	EXTERN	_putfonts8_asc
+     9 00000000                                 	EXTERN	_init_gdtidt
+    10 00000000                                 	EXTERN	_io_hlt
+    11 00000000                                 [FILE "bootpack.c"]
+    12                                          [SECTION .data]
+    13 00000000                                 _font_A.0:
+    14 00000000 00                              	DB	0
+    15 00000001 00                              	DB	0
+    16 00000002 00                              	DB	0
+    17 00000003 00                              	DB	0
+    18 00000004 00                              	DB	0
+    19 00000005 00                              	DB	0
+    20 00000006 00                              	DB	0
+    21 00000007 00                              	DB	0
+    22 00000008 08                              	DB	8
+    23 00000009 08                              	DB	8
+    24 0000000A 08                              	DB	8
+    25 0000000B 08                              	DB	8
+    26 0000000C 08                              	DB	8
+    27 0000000D 0F                              	DB	15
+    28 0000000E 00                              	DB	0
+    29 0000000F 00                              	DB	0
+    30 00000010                                 LC0:
+    31 00000010 48 65 6C 6C 6F 20 4C 79 72 61   	DB	"Hello Lyra OS",0x00
+       0000001A 20 4F 53 00 
+    32                                          [SECTION .text]
+    33 00000000                                 	ALIGN	2
+    34 00000000                                 	GLOBAL	_HariMain
+    35 00000000                                 _HariMain:
+    36 00000000 55                              	PUSH	EBP
+    37 00000001 89 E5                           	MOV	EBP,ESP
+    38 00000003 56                              	PUSH	ESI
+    39 00000004 53                              	PUSH	EBX
+    40 00000005 8B 35 00000FF8                  	MOV	ESI,DWORD [4088]
+    41 0000000B 0F BF 1D 00000FF4               	MOVSX	EBX,WORD [4084]
+    42 00000012 E8 [00000000]                   	CALL	_init_palette
+    43 00000017 0F BF 05 00000FF6               	MOVSX	EAX,WORD [4086]
+    44 0000001E 50                              	PUSH	EAX
+    45 0000001F 0F BF 05 00000FF4               	MOVSX	EAX,WORD [4084]
+    46 00000026 50                              	PUSH	EAX
+    47 00000027 FF 35 00000FF8                  	PUSH	DWORD [4088]
+    48 0000002D E8 [00000000]                   	CALL	_init_screen
+    49 00000032 68 [00000010]                   	PUSH	LC0
+    50 00000037 6A 04                           	PUSH	4
+    51 00000039 6A 05                           	PUSH	5
+    52 0000003B 6A 05                           	PUSH	5
+    53 0000003D 53                              	PUSH	EBX
+    54 0000003E 56                              	PUSH	ESI
+    55 0000003F E8 [00000000]                   	CALL	_putfonts8_asc
+    56 00000044 83 C4 24                        	ADD	ESP,36
+    57 00000047 E8 [00000000]                   	CALL	_init_gdtidt
+    58 0000004C                                 L2:
+    59 0000004C E8 [00000000]                   	CALL	_io_hlt
+    60 00000051 EB F9                           	JMP	L2
