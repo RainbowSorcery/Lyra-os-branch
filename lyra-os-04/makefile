@@ -1,5 +1,5 @@
-TOOLPATH = C:\Project\os\30daysOS\tolset\z_tools\
-INCPATH  = C:\Project\os\30daysOS\tolset\z_tools\haribote\
+TOOLPATH = d:\os\30dayMakeOS\tolset\z_tools\
+INCPATH  = d:\os\30dayMakeOS\tolset\z_tools\haribote\
 
 
 # 文件生成规则
@@ -8,14 +8,14 @@ asm : ipl.nas
 	nask asmhead.nas lyra-os.bin
 
 img : 
-	edimg imgin:C:\Project\os\30daysOS\tolset\z_tools\fdimg0at.tek wbinimg src:ipl.bin len:512 from:0 to:0 copy from:lyra-os.sys to:@: imgout:lyra-os.img
+	edimg imgin:D:\os\30dayMakeOS\tolset\z_tools\fdimg0at.tek wbinimg src:ipl.bin len:512 from:0 to:0 copy from:lyra-os.sys to:@: imgout:lyra-os.img
 
 build-obj:
 	cc1 -I$(INCPATH) -Os -Wall -quiet -o bootpack.gas bootpack.c
 	GAS2NASK bootpack.gas bootpack.nas
 	nask bootpack.nas bootpack.obj bootpack.lst
 	nask naskfunc.nas naskfunc.obj naskfuns.lst
-	obj2bim @C:\Project\os\30daysOS\tolset\z_tools\haribote\haribote.rul out:bootpack.bim stack:3136k map:bootpack.map graphic.obj dsctbl.obj bootpack.obj naskfunc.obj font.obj
+	obj2bim @D:\os\30dayMakeOS\tolset\z_tools\haribote\haribote.rul out:bootpack.bim stack:3136k map:bootpack.map graphic.obj dsctbl.obj bootpack.obj naskfunc.obj font.obj
 	BIM2HRB bootpack.bim bootpack.hrb 0
 	copy /B lyra-os.bin+bootpack.hrb lyra-os.sys
 build-font :
@@ -27,7 +27,9 @@ build :
 	make build-nas
 	make build-font
 	make build-obj
-	make  img
+	make img
+	copy lyra-os.img ..\build\
+
 
 build-nas :
 	make graphic.gas
@@ -39,8 +41,7 @@ build-nas :
 run :
 	make clear
 	make build
-	copy lyra-os.img C:\Project\os\30daysOS\tolset\z_tools\qemu\fdimage0.bin
-	make -C C:\Project\os\30daysOS\tolset\z_tools\qemu
+	bochsdbg -q -f D:\Bochs-2.7\bochsrc
 
 graphic.gas : graphic.c Makefile
 	cc1 -o graphic.gas graphic.c
@@ -70,3 +71,4 @@ clear :
 	del *.bim
 	del *.lst
 	del *.img
+	del ..\build\lyra-os.img
