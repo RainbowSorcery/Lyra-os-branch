@@ -1,5 +1,8 @@
 TOOLPATH = D:\os\30dayMakeOS\tolset\z_tools
 
+make:
+	make run
+
 asm : ipl.nas
 	nask ipl.nas ipl.bin
 	nask asmhead.nas asmhead.bin

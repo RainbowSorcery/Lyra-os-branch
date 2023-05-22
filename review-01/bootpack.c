@@ -28,6 +28,7 @@ void init_palette(void)
 		0x00, 0x84, 0x84, /* 14:浅暗蓝 */
 		0x84, 0x84, 0x84, /* 15:暗灰 */
 		0xb6, 0xa3, 0xbc, /* 16:dreamer鬃毛颜色 */
+
         0xFF, 0xC0, 0xCB,
 
 	};
@@ -48,8 +49,7 @@ void set_palette(int start, int end, unsigned char *rgb)
 	for (i = start; i <= end; i++)
 	{
 		// 将调色板中记录的RGB值存储到0x03c9地址中
-		// 为什么要 / 4 rgb 红绿蓝（R、G、B）都是一个具有 6 位值（从 0 到 63）的字节+ 两个 0)
-		// 前两位0不识别 所以要右移两位使得前两位死别
+		// 为什么要 / 4, rgb 红绿蓝（R、G、B）都是一个具有 6 位值（从 0 到 63）的字节+ 两个 0) 前两位0不识别 所以要右移两位使得前两位识别 /4就相当于右移两位补零
 		io_out8(0x03c9, rgb[0] / 4);
 		io_out8(0x03c9, rgb[1] / 4);
 		io_out8(0x03c9, rgb[2] / 4);
@@ -62,15 +62,29 @@ void set_palette(int start, int end, unsigned char *rgb)
 	return;
 }
 
+
+void boxfill8(unsigned char *vram, int xSize, unsigned int color, int x0, int y0, int x1, int y1) {
+	int x, y;
+
+	for (x = x0; x <= x1; x++) {
+		for (y = y0; y <= y1; y++) {
+			*(vram + xSize * y + x) = color;
+		}
+	}
+}
+
 void HariMain(void)
 {
     int j = 0;
     int i = 0xa0000;
     init_palette();
-    for (; i <= 0xaffff; i++)
-    {
-        write_mem8(i, 0x11);
-    }
+
+	char *p;
+
+	p = (char *) 0xa0000;
+
+	boxfill8(i, 320, 0xf, 70, 150, 120, 172);
+
 
 fin:
     io_hlt();
