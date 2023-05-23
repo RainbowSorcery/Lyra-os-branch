@@ -40,6 +40,5 @@ clear :
 	del *.map
 	del *.lst
 	del *.txt
-	del *.text
 	del *.gas
 	
