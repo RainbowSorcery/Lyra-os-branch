@@ -1,5 +1,20 @@
 #include <stdio.h>
 
+
+#define PIC0_ICW1		0x0020
+#define PIC0_OCW2		0x0020
+#define PIC0_IMR		0x0021
+#define PIC0_ICW2		0x0021
+#define PIC0_ICW3		0x0021
+#define PIC0_ICW4		0x0021
+#define PIC1_ICW1		0x00a0
+#define PIC1_OCW2		0x00a0
+#define PIC1_IMR		0x00a1
+#define PIC1_ICW2		0x00a1
+#define PIC1_ICW3		0x00a1
+#define PIC1_ICW4		0x00a1
+
+
 void io_hlt(void);
 
 void write_mem8(int addr, int data);
@@ -9,6 +24,10 @@ void io_out8(int port, int data);
 int io_store_eflags(int eflags);
 int io_load_eflags();
 void load_gdtr(int limit, int addr);
+void load_idtr(int limit, int arr);
+void asm_inthandler21(void);
+void io_sti(void);
+void inthandler21(int *esp);
 
 struct Boot_info
 {
@@ -28,9 +47,12 @@ struct Boot_info
 
 struct Segment_descriptor
 {
+	// 段界限
 	short limit_low;
+	// 段基址
 	short base_low;
 	char base_mid;
+	// 访问权限
 	char access_right;
 	char limit_high;
 	char base_high;
@@ -38,9 +60,15 @@ struct Segment_descriptor
 
 struct Gate_descriptor
 {
+	// offset 中断处理程序入口点，当中断触发时，跳转到中断程序的入口点进行执行
 	short offset_low;
+	// selector 高13位确定了段下标，低2位表示特权级
 	short selector;
+	// 中断描述符属性
 	char dw_count;
+	
+	char access_right;
+
 	short offset_hight;
 };
 
@@ -50,12 +78,13 @@ void init_gdt_idt(void){
 	// IDT开始地址
 	struct Gate_descriptor *idt = (struct Gate_descriptor *) 0x0026f800;
 
-	// GDT寄存器共有48位，前32位为全局描述符地址，也就是0x00270000，后16位是段上限。段上限只有16位，段上限指明了操作系统共初始化了多少个段
-	// 所以可以最大初始化2^16 = 65535个，每个段8个字节 65535 / 8 = 8191。我们可以初始化8191个段，0xffff最大可以初始化8192个段。
-	int i =0;
-	for (i = 0; i < 8192; i++) {
-		set_segment_descriptor(gdt + i, 0, 0, 0);
-	}
+		// GDT寄存器共有48位，前32位为全局描述符地址，也就是0x00270000，后16位是段上限。段上限只有16位，段上限指明了操作系统共初始化了多少个段
+		// 再这16位前13位是段索引，最大2^13=jhjjhgttytioo   ll;l88878956454132 .0.0第321536544614位 
+		// 所以可以最大初始化2^16 = 65535个，每个段8个字节 65535 / 8 = 8191。我们可以初始化8191个段，0xffff最大可以初始化8192个段，如果超了8191，后面的肯定就没办法访问了。
+		int i;
+		for (i = 0; i < 8192; i++) {
+			set_segment_descriptor(gdt + i, 0, 0, 0);
+		}
 
 	load_gdtr(0xffff, 0x00270000);
 
@@ -64,8 +93,70 @@ void init_gdt_idt(void){
 	// 段2则是我们的bootpack这个程序 共512k
 	set_segment_descriptor(gdt + 2, 0x0007ffff, 0x00280000, 0x409a);
 
+	// idt是 一个最大256表项的数组
+	for (i = 0; i < 256; i++) {
+		set_gated_descriptor(idt + i, 0, 0, 0);
+	}
+
+	// 段界限 段地址 为了将ldtr和gdtr寄存器保证一致，所以即便是最大只能设置256个idt表项也依旧将界限设置成16位
+	// 如果设置成不保存一致的情况的话，cpu还需要特殊为寄存器进行特殊处理，这样会增加系统的设计复杂性。
+	// 界限表示段所占字节数 - 1，并不是idt数，是指256 * 8 - 1，并不是256
+	load_idtr(0x7ff, 0x0026f800);
+
+	set_gated_descriptor(idt + 0x2c, (int) asm_inthandler21, 2 * 8, 0x008e);
+
+	struct Boot_info *binfo = (struct Boot_info *) 0x0ff0;
+	printFont8_ascii(binfo->vram, binfo->scrnx, 10, 10, 0x07, "INT 21 (IRQ-1) : PS/2 keyboard");
 
 
+	// set_gated_descriptor(idt + 0x27, (int) asm_inthandler21, 2 * 8, 0x008e);
+	// set_gated_descriptor(idt + 0x2c, (int) asm_inthandler21, 2 * 8, 0x008e);
+}
+
+/**
+ * 设置idt 
+*/
+void set_gated_descriptor(struct Gate_descriptor *gd, int offset, int selector, int ar) {
+	gd -> offset_low = offset & 0xffff;
+	gd -> selector = selector;
+	gd -> dw_count = (ar >> 8) & 0xff;
+	gd -> access_right = ar & 0xff;
+	gd -> offset_hight = (offset >> 16) & 0xffff;
+	return;
+}
+
+void init_pic() {
+	// IMR为中断屏蔽寄存器，该寄存器有8位，分别对应每一路IRQ信号，如果值为1，则拼屏蔽对应的信号
+	io_out8(PIC0_IMR, 0xff);
+	io_out8(PIC1_IMR, 0xff);
+
+	
+	io_out8(PIC0_ICW1, 0x11);
+	io_out8(PIC0_ICW2, 0x20);
+	io_out8(PIC0_ICW3, 1 << 2);
+	io_out8(PIC0_ICW4, 0x01);
+
+	io_out8(PIC1_ICW1, 0x11);
+	io_out8(PIC1_ICW2, 0x28);
+	io_out8(PIC1_ICW3, 2);
+	io_out8(PIC1_ICW4, 0x01);
+
+	io_out8(PIC0_IMR, 0xfb);
+	io_out8(PIC1_IMR, 0xff);
+
+}
+
+
+
+void inthandler21(int *esp)
+/* 来自PS/2键盘的中断 */
+{
+	struct Boot_info *binfo = (struct Boot_info *) 0x0ff0;
+	boxfill8(binfo->vram, binfo->scrnx, 0x07, 0, 0, 32 * 8 - 1, 15);
+	printFont8_ascii(binfo->vram, binfo->scrnx, 10, 10, 0x07, "INT 21 (IRQ-1) : PS/2 keyboard");
+	for (;;) {
+		io_hlt();
+	}
 }
 
 
@@ -85,14 +176,12 @@ void set_segment_descriptor(struct Segment_descriptor *gdt, int base, unsigned i
 	}
 
 	gdt->limit_low = limit & 0xffff;
-	// 先获取高8位 之后左移获取 中间四位进行或运算
+	// 先获取高8位 之后左移获取 对中间四位进行或运算
 	gdt->limit_high = (limit >> 16) & 0x0f | ((attr >> 8) & 0xf0);
 	gdt->base_low = base & 0xffff;
 	gdt->base_mid = (base >> 16) & 0xff;
 	gdt->base_high = (base >> 24) & 0xff;
 	gdt->access_right = attr & 0xff;
-	
-
 }
 
 
@@ -300,21 +389,22 @@ void putblock8_8(char *vram, int vxsize, int pxsize,
 
 void HariMain(void)
 {
+
+
 	struct Boot_info *boot_info = (struct Boot_info *)0x0ff0;
 
 	init_palette();
 
+	init_gdt_idt();
+	init_pic();
+	io_sti(); 
+	
 	init_screen(boot_info->vram, boot_info->scrnx, boot_info->scrny);
-
-
 
 	char s[16];
 	sprintf(s, "size_x:%d", boot_info->scrnx);
 
-	printFont8_ascii(boot_info->vram, boot_info->scrnx, 10, 10, 0x0e, boot_info->scrnx);
-
 	char mour[256];
-
 
 	int	mx = (boot_info->scrnx - 16) / 2; /* 计算画面的中心坐标*/
 	int my = (boot_info->scrny - 28 - 16) / 2;
@@ -322,11 +412,12 @@ void HariMain(void)
 	init_mouse_cursor8(mour, 0x0f);
 	putblock8_8(boot_info->vram, boot_info->scrnx, 16, 16, mx, my, mour, 16);
 
+	// io_out8(PIC0_IMR, 0xf9); /* 开放PIC1和键盘中断(11111001) */
+	// io_out8(PIC1_IMR, 0xef); /* 开放鼠标中断(11101111) */
 
-	init_gdt_idt();
-
-fin:
-	io_hlt();
-
+	fin:
+		io_hlt();
+	
 	goto fin;
+
 }
