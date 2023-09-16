@@ -89,9 +89,9 @@ void init_gdt_idt(void){
 	load_gdtr(0xffff, 0x00270000);
 
 	// 段1为cpu管理的全部内存 0x00000000-0xffffffff共4G
-	set_segment_descriptor(gdt + 1, 0xffffffff, 0x00000000, 0x4092);
+	set_segment_descriptor(gdt + 1,0x00000000, 0xffffffff, 0x4092);
 	// 段2则是我们的bootpack这个程序 共512k
-	set_segment_descriptor(gdt + 2, 0x0007ffff, 0x00280000, 0x409a);
+	set_segment_descriptor(gdt + 2, 0x00280000, 0x0007ffff, 0x409a);
 
 	// idt是 一个最大256表项的数组
 	for (i = 0; i < 256; i++) {
@@ -103,10 +103,7 @@ void init_gdt_idt(void){
 	// 界限表示段所占字节数 - 1，并不是idt数，是指256 * 8 - 1，并不是256
 	load_idtr(0x7ff, 0x0026f800);
 
-	set_gated_descriptor(idt + 0x2c, (int) asm_inthandler21, 2 * 8, 0x008e);
-
-	struct Boot_info *binfo = (struct Boot_info *) 0x0ff0;
-	printFont8_ascii(binfo->vram, binfo->scrnx, 10, 10, 0x07, "INT 21 (IRQ-1) : PS/2 keyboard");
+	set_gated_descriptor(idt + 0x21, (int) asm_inthandler21, 2 * 8, 0x008e);
 
 
 	// set_gated_descriptor(idt + 0x27, (int) asm_inthandler21, 2 * 8, 0x008e);
@@ -161,27 +158,28 @@ void inthandler21(int *esp)
 
 
 /**
- * 初始化gtd
+ * 初始化gdt
  * gdt: gdt地址
  * limit: 段界限，段的长度
  * base: 段基址 段的起始地址
  * attr: 段属性 
 */
-void set_segment_descriptor(struct Segment_descriptor *gdt, int base, unsigned int limit, int attr) {
+void set_segment_descriptor(struct Segment_descriptor *gdt, int base, unsigned int limit, int ar) {
 	// 如果段上限大于 0xffff 设置G位为1
-	if (limit > 0xffff) {
-		attr != 0x8000;
+	if (limit > 0xfffff) {
+		ar |= 0x8000;
 		// limit缩小4k
 		limit /= 0x1000;
 	}
 
 	gdt->limit_low = limit & 0xffff;
-	// 先获取高8位 之后左移获取 对中间四位进行或运算
-	gdt->limit_high = (limit >> 16) & 0x0f | ((attr >> 8) & 0xf0);
+	gdt->limit_high = ((limit >> 16) & 0x0f) | ((ar >> 8) & 0xf0);
 	gdt->base_low = base & 0xffff;
 	gdt->base_mid = (base >> 16) & 0xff;
 	gdt->base_high = (base >> 24) & 0xff;
-	gdt->access_right = attr & 0xff;
+	gdt->access_right = ar & 0xff;
+	
+	return;
 }
 
 
@@ -389,20 +387,14 @@ void putblock8_8(char *vram, int vxsize, int pxsize,
 
 void HariMain(void)
 {
-
-
 	struct Boot_info *boot_info = (struct Boot_info *)0x0ff0;
-
-	init_palette();
 
 	init_gdt_idt();
 	init_pic();
 	io_sti(); 
 	
+	init_palette();
 	init_screen(boot_info->vram, boot_info->scrnx, boot_info->scrny);
-
-	char s[16];
-	sprintf(s, "size_x:%d", boot_info->scrnx);
 
 	char mour[256];
 
@@ -410,14 +402,13 @@ void HariMain(void)
 	int my = (boot_info->scrny - 28 - 16) / 2;
 
 	init_mouse_cursor8(mour, 0x0f);
-	putblock8_8(boot_info->vram, boot_info->scrnx, 16, 16, mx, my, mour, 16);
 
-	// io_out8(PIC0_IMR, 0xf9); /* 开放PIC1和键盘中断(11111001) */
-	// io_out8(PIC1_IMR, 0xef); /* 开放鼠标中断(11101111) */
 
-	fin:
+	io_out8(PIC0_IMR, 0xf9); /* 开放PIC1和键盘中断(11111001) */
+	io_out8(PIC1_IMR, 0xef); /* 开放鼠标中断(11101111) */
+
+	for (;;) {
 		io_hlt();
-	
-	goto fin;
+	}
 
 }

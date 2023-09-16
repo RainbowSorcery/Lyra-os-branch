@@ -1,7 +1,10 @@
-[FORMAT "WCOFF"]
-[BITS 32]
+; naskfunc
+; TAB=4
 
-[INSTRSET 'i386p']
+[FORMAT "WCOFF"]				; �I�u�W�F�N�g�t�@�C�����郂�[�h	
+[INSTRSET "i486p"]				; 486�̖��߂܂Ŏg�������Ƃ����L�q
+[BITS 32]						; 32�r�b�g���[�h�p�̋@�B����点��
+[FILE "naskfunc.nas"]			; �\�[�X�t�@�C�������
 
 [FILE "naskfun.nas"]
 GLOBAL _io_hlt
