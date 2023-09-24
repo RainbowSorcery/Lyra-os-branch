@@ -1,34 +1,5 @@
 #include <stdio.h>
 
-
-#define PIC0_ICW1		0x0020
-#define PIC0_OCW2		0x0020
-#define PIC0_IMR		0x0021
-#define PIC0_ICW2		0x0021
-#define PIC0_ICW3		0x0021
-#define PIC0_ICW4		0x0021
-#define PIC1_ICW1		0x00a0
-#define PIC1_OCW2		0x00a0
-#define PIC1_IMR		0x00a1
-#define PIC1_ICW2		0x00a1
-#define PIC1_ICW3		0x00a1
-#define PIC1_ICW4		0x00a1
-
-
-void io_hlt(void);
-
-void write_mem8(int addr, int data);
-
-int io_cli();
-void io_out8(int port, int data);
-int io_store_eflags(int eflags);
-int io_load_eflags();
-void load_gdtr(int limit, int addr);
-void load_idtr(int limit, int arr);
-void asm_inthandler21(void);
-void io_sti(void);
-void inthandler21(int *esp);
-
 struct Boot_info
 {
 	// 引导扇区设置
@@ -66,35 +37,76 @@ struct Gate_descriptor
 	short selector;
 	// 中断描述符属性
 	char dw_count;
-	
+
 	char access_right;
 
 	short offset_hight;
 };
 
-void init_gdt_idt(void){
-	// GDT开始地址
-	struct Segment_descriptor *gdt = (struct Segment_descriptor *) 0x00270000;
-	// IDT开始地址
-	struct Gate_descriptor *idt = (struct Gate_descriptor *) 0x0026f800;
+struct KeyBoardBuffer
+{
+	// 键盘缓冲区
+	unsigned char buffer[32];
+	// 下一个未读取的数据下标
+	unsigned short next;
+};
 
-		// GDT寄存器共有48位，前32位为全局描述符地址，也就是0x00270000，后16位是段上限。段上限只有16位，段上限指明了操作系统共初始化了多少个段
-		// 再这16位前13位是段索引，最大2^13=jhjjhgttytioo   ll;l88878956454132 .0.0第321536544614位 
-		// 所以可以最大初始化2^16 = 65535个，每个段8个字节 65535 / 8 = 8191。我们可以初始化8191个段，0xffff最大可以初始化8192个段，如果超了8191，后面的肯定就没办法访问了。
-		int i;
-		for (i = 0; i < 8192; i++) {
-			set_segment_descriptor(gdt + i, 0, 0, 0);
-		}
+struct KeyBoardBuffer keyBoardBuffer;
+
+#define PIC0_ICW1 0x0020
+#define PIC0_OCW2 0x0020
+#define PIC0_IMR 0x0021
+#define PIC0_ICW2 0x0021
+#define PIC0_ICW3 0x0021
+#define PIC0_ICW4 0x0021
+#define PIC1_ICW1 0x00a0
+#define PIC1_OCW2 0x00a0
+#define PIC1_IMR 0x00a1
+#define PIC1_ICW2 0x00a1
+#define PIC1_ICW3 0x00a1
+#define PIC1_ICW4 0x00a1
+
+void io_hlt(void);
+void write_mem8(int addr, int data);
+int io_cli();
+void io_out8(int port, int data);
+int io_store_eflags(int eflags);
+int io_load_eflags();
+void load_gdtr(int limit, int addr);
+void load_idtr(int limit, int arr);
+void asm_inthandler21(void);
+void asm_inthandler2c(void);
+void io_sti(void);
+void inthandler21(int *esp);
+void inthandler2c(int *esp);
+int io_in8(int data);
+
+void init_gdt_idt(void)
+{
+	// GDT开始地址
+	struct Segment_descriptor *gdt = (struct Segment_descriptor *)0x00270000;
+	// IDT开始地址
+	struct Gate_descriptor *idt = (struct Gate_descriptor *)0x0026f800;
+
+	// GDT寄存器共有48位，前32位为全局描述符地址，也就是0x00270000，后16位是段上限。段上限只有16位，段上限指明了操作系统共初始化了多少个段
+	// 再这16位前13位是段索引，最大2^13=jhjjhgttytioo   ll;l88878956454132 .0.0第321536544614位
+	// 所以可以最大初始化2^16 = 65535个，每个段8个字节 65535 / 8 = 8191。我们可以初始化8191个段，0xffff最大可以初始化8192个段，如果超了8191，后面的肯定就没办法访问了。
+	int i;
+	for (i = 0; i < 8192; i++)
+	{
+		set_segment_descriptor(gdt + i, 0, 0, 0);
+	}
 
 	load_gdtr(0xffff, 0x00270000);
 
 	// 段1为cpu管理的全部内存 0x00000000-0xffffffff共4G
-	set_segment_descriptor(gdt + 1,0x00000000, 0xffffffff, 0x4092);
+	set_segment_descriptor(gdt + 1, 0x00000000, 0xffffffff, 0x4092);
 	// 段2则是我们的bootpack这个程序 共512k
 	set_segment_descriptor(gdt + 2, 0x00280000, 0x0007ffff, 0x409a);
 
 	// idt是 一个最大256表项的数组
-	for (i = 0; i < 256; i++) {
+	for (i = 0; i < 256; i++)
+	{
 		set_gated_descriptor(idt + i, 0, 0, 0);
 	}
 
@@ -103,31 +115,31 @@ void init_gdt_idt(void){
 	// 界限表示段所占字节数 - 1，并不是idt数，是指256 * 8 - 1，并不是256
 	load_idtr(0x7ff, 0x0026f800);
 
-	set_gated_descriptor(idt + 0x21, (int) asm_inthandler21, 2 * 8, 0x008e);
-
-
-	// set_gated_descriptor(idt + 0x27, (int) asm_inthandler21, 2 * 8, 0x008e);
-	// set_gated_descriptor(idt + 0x2c, (int) asm_inthandler21, 2 * 8, 0x008e);
+	// 2表示程序加载的GDT段号，我们的bootpack程序是加载到GDT的2段上的，所以这里是2，
+	set_gated_descriptor(idt + 0x21, (int)asm_inthandler21, 2 * 8, 0x008e);
+	set_gated_descriptor(idt + 0x2c, (int)asm_inthandler2c, 2 * 8, 0x008e);
 }
 
 /**
- * 设置idt 
-*/
-void set_gated_descriptor(struct Gate_descriptor *gd, int offset, int selector, int ar) {
-	gd -> offset_low = offset & 0xffff;
-	gd -> selector = selector;
-	gd -> dw_count = (ar >> 8) & 0xff;
-	gd -> access_right = ar & 0xff;
-	gd -> offset_hight = (offset >> 16) & 0xffff;
+ * 设置idt
+ *
+ */
+void set_gated_descriptor(struct Gate_descriptor *gd, int offset, int selector, int ar)
+{
+	gd->offset_low = offset & 0xffff;
+	gd->selector = selector;
+	gd->dw_count = (ar >> 8) & 0xff;
+	gd->access_right = ar & 0xff;
+	gd->offset_hight = (offset >> 16) & 0xffff;
 	return;
 }
 
-void init_pic() {
+void init_pic()
+{
 	// IMR为中断屏蔽寄存器，该寄存器有8位，分别对应每一路IRQ信号，如果值为1，则拼屏蔽对应的信号
 	io_out8(PIC0_IMR, 0xff);
 	io_out8(PIC1_IMR, 0xff);
 
-	
 	io_out8(PIC0_ICW1, 0x11);
 	io_out8(PIC0_ICW2, 0x20);
 	io_out8(PIC0_ICW3, 1 << 2);
@@ -140,33 +152,48 @@ void init_pic() {
 
 	io_out8(PIC0_IMR, 0xfb);
 	io_out8(PIC1_IMR, 0xff);
-
 }
-
-
 
 void inthandler21(int *esp)
 /* 来自PS/2键盘的中断 */
 {
-	struct Boot_info *binfo = (struct Boot_info *) 0x0ff0;
+	unsigned char data = io_in8(0x0060);
+	if (keyBoardBuffer.next < 32)
+	{
+		// 获取中断键盘码
+		keyBoardBuffer.buffer[keyBoardBuffer.next] = data;
+		// 下标 + 1
+		keyBoardBuffer.next++;
+	}
+
+	io_out8(PIC0_OCW2, 0x61); /* 通知PIC IRQ-01 已经受理完毕 */
+	return;
+}
+
+void inthandler2c(int *esp)
+/* 来自PS/2鼠标	的中断 */
+{
+	struct Boot_info *binfo = (struct Boot_info *)0x0ff0;
 	boxfill8(binfo->vram, binfo->scrnx, 0x07, 0, 0, 32 * 8 - 1, 15);
-	printFont8_ascii(binfo->vram, binfo->scrnx, 10, 10, 0x07, "INT 21 (IRQ-1) : PS/2 keyboard");
-	for (;;) {
+	print_font8_ascii(binfo->vram, binfo->scrnx, 10, 10, 0x07, "INT 2c (IRQ-2) : PS/2 Mourse");
+	for (;;)
+	{
 		io_hlt();
 	}
 }
-
 
 /**
  * 初始化gdt
  * gdt: gdt地址
  * limit: 段界限，段的长度
  * base: 段基址 段的起始地址
- * attr: 段属性 
-*/
-void set_segment_descriptor(struct Segment_descriptor *gdt, int base, unsigned int limit, int ar) {
+ * attr: 段属性
+ */
+void set_segment_descriptor(struct Segment_descriptor *gdt, int base, unsigned int limit, int ar)
+{
 	// 如果段上限大于 0xffff 设置G位为1
-	if (limit > 0xfffff) {
+	if (limit > 0xfffff)
+	{
 		ar |= 0x8000;
 		// limit缩小4k
 		limit /= 0x1000;
@@ -178,11 +205,9 @@ void set_segment_descriptor(struct Segment_descriptor *gdt, int base, unsigned i
 	gdt->base_mid = (base >> 16) & 0xff;
 	gdt->base_high = (base >> 24) & 0xff;
 	gdt->access_right = ar & 0xff;
-	
+
 	return;
 }
-
-
 
 void init_palette(void)
 {
@@ -251,7 +276,7 @@ void boxfill8(unsigned char *vram, int xSize, int x0, int y0, int x1, int y1, un
 }
 
 static char font_A[16] = {
-	0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,	
+	0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
 	0x24, 0x7e, 0x42, 0x42, 0x42, 0xe7, 0x00, 0x00};
 
 /**
@@ -319,11 +344,10 @@ void init_screen(char *vram, int x_size, int y_size)
 	boxfill8(vram, x_size, 2, y_size - 15, x_size - 317, 195, 0x07);
 	boxfill8(vram, x_size, 40, y_size - 15, x_size - 279, 196, 0x00);
 	boxfill8(vram, x_size, 2, y_size - 5, 40, x_size - 124, 0x00);
-	// boxfill8(wram, 40, y_size - 6, 40, x_size - 123, 0x05);
 }
 extern char font[4096];
 
-void printFont8_ascii(char *vram, int x_size, int x, int y, char color, unsigned char *str)
+void print_font8_ascii(char *vram, int x_size, int x, int y, char color, unsigned char *str)
 {
 	// 末尾字符是0x00
 	for (; *str != 0x00; str++)
@@ -337,34 +361,38 @@ void init_mouse_cursor8(char *mouse, char bc)
 /* マウスカーソルを準備（16x16） */
 {
 	static char cursor[16][16] = {
-    "*...............",
-    "**..............",
-    "*O*.............",
-    "*OO*............",
-    "*OOO*...........",
-    "*OOOO*..........",
-    "*OOOOO*.........",
-    "*OOOOOO*........",
-    "*OOOOOOO*.......",
-    "*OOOO*****......",
-    "*OO*O*..........",
-    "*O*.*O*.........",
-    "**..*O*.........",
-    "*....*O*........",
-    ".....*O*........",
-    "......*........."
-	};
+		"*...............",
+		"**..............",
+		"*O*.............",
+		"*OO*............",
+		"*OOO*...........",
+		"*OOOO*..........",
+		"*OOOOO*.........",
+		"*OOOOOO*........",
+		"*OOOOOOO*.......",
+		"*OOOO*****......",
+		"*OO*O*..........",
+		"*O*.*O*.........",
+		"**..*O*.........",
+		"*....*O*........",
+		".....*O*........",
+		"......*........."};
 	int x, y;
 
-	for (y = 0; y < 16; y++) {
-		for (x = 0; x < 16; x++) {
-			if (cursor[y][x] == '*') {
+	for (y = 0; y < 16; y++)
+	{
+		for (x = 0; x < 16; x++)
+		{
+			if (cursor[y][x] == '*')
+			{
 				mouse[y * 16 + x] = 0x00;
 			}
-			if (cursor[y][x] == 'O') {
+			if (cursor[y][x] == 'O')
+			{
 				mouse[y * 16 + x] = 0x07;
 			}
-			if (cursor[y][x] == '.') {
+			if (cursor[y][x] == '.')
+			{
 				mouse[y * 16 + x] = bc;
 			}
 		}
@@ -373,17 +401,18 @@ void init_mouse_cursor8(char *mouse, char bc)
 }
 
 void putblock8_8(char *vram, int vxsize, int pxsize,
-	int pysize, int px0, int py0, char *buf, int bxsize)
+				 int pysize, int px0, int py0, char *buf, int bxsize)
 {
 	int x, y;
-	for (y = 0; y < pysize; y++) {
-		for (x = 0; x < pxsize; x++) {
+	for (y = 0; y < pysize; y++)
+	{
+		for (x = 0; x < pxsize; x++)
+		{
 			vram[(py0 + y) * vxsize + (px0 + x)] = buf[y * bxsize + x];
 		}
 	}
 	return;
 }
-
 
 void HariMain(void)
 {
@@ -391,24 +420,49 @@ void HariMain(void)
 
 	init_gdt_idt();
 	init_pic();
-	io_sti(); 
-	
+	io_sti();
+
 	init_palette();
 	init_screen(boot_info->vram, boot_info->scrnx, boot_info->scrny);
 
 	char mour[256];
 
-	int	mx = (boot_info->scrnx - 16) / 2; /* 计算画面的中心坐标*/
+	int mx = (boot_info->scrnx - 16) / 2; /* 计算画面的中心坐标*/
 	int my = (boot_info->scrny - 28 - 16) / 2;
 
 	init_mouse_cursor8(mour, 0x0f);
 
-
 	io_out8(PIC0_IMR, 0xf9); /* 开放PIC1和键盘中断(11111001) */
 	io_out8(PIC1_IMR, 0xef); /* 开放鼠标中断(11101111) */
 
-	for (;;) {
-		io_hlt();
-	}
+	unsigned char s[4];
+	for (;;)
+	{
+		// 判断缓冲区是否有数据
+		if (keyBoardBuffer.next != 0)
+		{
+			// 关闭中断 避免程序被打断
+			io_cli();
+			// 每次读取缓冲区第一位数据 因为是队列 肯定读第一位
+			unsigned char data = keyBoardBuffer.buffer[0];
+			sprintf(s, "%02X", data);
+			boxfill8(boot_info->vram, boot_info->scrnx, 0, 3, 15, 31, 0x0f);
+			print_font8_ascii(boot_info->vram, boot_info->scrnx, 0, 3, 0x07, s);
 
+			int i = 0;
+			keyBoardBuffer.next--;
+			for (i = 0; i < keyBoardBuffer.next; i++)
+			{
+				keyBoardBuffer.buffer[i] = keyBoardBuffer.buffer[i + 1];
+			}
+
+			// 缓冲区的数据读取完毕就可以继续接收其他中断了，例如键盘中断新数据会继续保存到缓冲区中 并不会对我们的程序有什么影响
+			io_sti();
+		}
+		else
+		{
+			// 缓冲区数据处理完毕 开启中断
+			io_sti();
+		}
+	}
 }
