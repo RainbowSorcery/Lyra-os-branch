@@ -47,8 +47,11 @@ struct KeyBoardBuffer
 {
 	// 键盘缓冲区
 	unsigned char buffer[32];
-	// 下一个未读取的数据下标
-	unsigned short next;
+	// 读下标
+	unsigned short read;
+	// 写下标  
+	unsigned short write;
+	unsigned short len;
 };
 
 struct KeyBoardBuffer keyBoardBuffer;
@@ -158,12 +161,18 @@ void inthandler21(int *esp)
 /* 来自PS/2键盘的中断 */
 {
 	unsigned char data = io_in8(0x0060);
-	if (keyBoardBuffer.next < 32)
+	if (keyBoardBuffer.len < 32)
 	{
 		// 获取中断键盘码
-		keyBoardBuffer.buffer[keyBoardBuffer.next] = data;
+		keyBoardBuffer.buffer[keyBoardBuffer.read] = data;
 		// 下标 + 1
-		keyBoardBuffer.next++;
+		
+		keyBoardBuffer.len++;
+		keyBoardBuffer.read++;
+
+		if (keyBoardBuffer.read == 32) {
+			keyBoardBuffer.read = 0;
+		}
 	}
 
 	io_out8(PIC0_OCW2, 0x61); /* 通知PIC IRQ-01 已经受理完毕 */
@@ -439,22 +448,22 @@ void HariMain(void)
 	for (;;)
 	{
 		// 判断缓冲区是否有数据
-		if (keyBoardBuffer.next != 0)
+		if (keyBoardBuffer.len != 0)
 		{
 			// 关闭中断 避免程序被打断
 			io_cli();
 			// 每次读取缓冲区第一位数据 因为是队列 肯定读第一位
-			unsigned char data = keyBoardBuffer.buffer[0];
+			unsigned char data = keyBoardBuffer.buffer[keyBoardBuffer.read];
+			keyBoardBuffer.read++;
+			keyBoardBuffer.len--;
+
+
 			sprintf(s, "%02X", data);
 			boxfill8(boot_info->vram, boot_info->scrnx, 0, 3, 15, 31, 0x0f);
 			print_font8_ascii(boot_info->vram, boot_info->scrnx, 0, 3, 0x07, s);
 
 			int i = 0;
-			keyBoardBuffer.next--;
-			for (i = 0; i < keyBoardBuffer.next; i++)
-			{
-				keyBoardBuffer.buffer[i] = keyBoardBuffer.buffer[i + 1];
-			}
+
 
 			// 缓冲区的数据读取完毕就可以继续接收其他中断了，例如键盘中断新数据会继续保存到缓冲区中 并不会对我们的程序有什么影响
 			io_sti();
