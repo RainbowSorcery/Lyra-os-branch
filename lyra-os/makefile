@@ -4,15 +4,18 @@ make:
 	make run
 
 asm : ipl.nas
+	makefont hankaku.txt font.bin
+	bin2obj font.bin font.obj _font
 	nask ipl.nas ipl.bin
 	nask asmhead.nas asmhead.bin
 	nask naskfun.nas naskfun.obj
-	cc1 -I D:\os\30dayMakeOS\tolset\z_tools\haribote -o bootpack.gas .\bootpack.c
+	cc1 -o fifo.gas .\fifo.c
+	nask .\fifo.nas .\fifo.obj fifo.lst
+	cc1 -I D:\os\os\tolset\z_tools\haribote  -o bootpack.gas .\bootpack.c
 	gas2nask .\bootpack.gas bootpack.nas
-	makefont hankaku.txt font.bin
-	bin2obj font.bin font.obj _font
+	gas2nask .\fifo.gas fifo.nas
 	nask .\bootpack.nas .\bootpack.obj bootpack.lst
-	obj2bim @D:\os\os\tolset\z_tools\haribote\haribote.rul out:bootpack.bim stack:3136k map:bootpack.map .\bootpack.obj naskfun.obj font.obj
+	obj2bim @D:\os\os\tolset\z_tools\haribote\haribote.rul out:bootpack.bim stack:3136k map:bootpack.map .\bootpack.obj naskfun.obj font.obj fifo.obj
 	bim2hrb bootpack.bim bootpack.hrb 0
 	copy /B asmhead.bin+bootpack.hrb lyra-os.sys
 

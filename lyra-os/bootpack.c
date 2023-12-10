@@ -1,5 +1,22 @@
 #include <stdio.h>
 
+#include "fifo.h"
+
+void io_hlt(void);
+void write_mem8(int addr, int data);
+int io_cli();
+void io_out8(int port, int data);
+int io_store_eflags(int eflags);
+int io_load_eflags();
+void load_gdtr(int limit, int addr);
+void load_idtr(int limit, int arr);
+void asm_inthandler21(void);
+void asm_inthandler2c(void);
+void io_sti(void);
+void inthandler21(int *esp);
+void inthandler2c(int *esp);
+int io_in8(int data);
+
 struct Boot_info
 {
 	// 引导扇区设置
@@ -43,18 +60,7 @@ struct Gate_descriptor
 	short offset_hight;
 };
 
-struct KeyBoardBuffer
-{
-	// 键盘缓冲区
-	unsigned char buffer[32];
-	// 读下标
-	unsigned short read;
-	// 写下标  
-	unsigned short write;
-	unsigned short len;
-};
-
-struct KeyBoardBuffer keyBoardBuffer;
+struct Fifo8 keyboardBufffer;
 
 #define PIC0_ICW1 0x0020
 #define PIC0_OCW2 0x0020
@@ -68,21 +74,6 @@ struct KeyBoardBuffer keyBoardBuffer;
 #define PIC1_ICW2 0x00a1
 #define PIC1_ICW3 0x00a1
 #define PIC1_ICW4 0x00a1
-
-void io_hlt(void);
-void write_mem8(int addr, int data);
-int io_cli();
-void io_out8(int port, int data);
-int io_store_eflags(int eflags);
-int io_load_eflags();
-void load_gdtr(int limit, int addr);
-void load_idtr(int limit, int arr);
-void asm_inthandler21(void);
-void asm_inthandler2c(void);
-void io_sti(void);
-void inthandler21(int *esp);
-void inthandler2c(int *esp);
-int io_in8(int data);
 
 void init_gdt_idt(void)
 {
@@ -160,22 +151,16 @@ void init_pic()
 void inthandler21(int *esp)
 /* 来自PS/2键盘的中断 */
 {
-	unsigned char data = io_in8(0x0060);
-	if (keyBoardBuffer.len < 32)
-	{
-		// 获取中断键盘码
-		keyBoardBuffer.buffer[keyBoardBuffer.read] = data;
-		// 下标 + 1
-		
-		keyBoardBuffer.len++;
-		keyBoardBuffer.read++;
+	struct Boot_info *boot_info = (struct Boot_info *)0x0ff0;
 
-		if (keyBoardBuffer.read == 32) {
-			keyBoardBuffer.read = 0;
-		}
-	}
+	boxfill8(boot_info->vram, boot_info->scrnx, 0, 3, 15, 31, 0x0f);
+	print_font8_ascii(boot_info->vram, boot_info->scrnx, 0, 3, 0x07, "keyboard interceptor");
+
+	unsigned char data = io_in8(0x0060);
+	fifo8_put(&keyboardBufffer, data);
 
 	io_out8(PIC0_OCW2, 0x61); /* 通知PIC IRQ-01 已经受理完毕 */
+
 	return;
 }
 
@@ -184,11 +169,25 @@ void inthandler2c(int *esp)
 {
 	struct Boot_info *binfo = (struct Boot_info *)0x0ff0;
 	boxfill8(binfo->vram, binfo->scrnx, 0x07, 0, 0, 32 * 8 - 1, 15);
-	print_font8_ascii(binfo->vram, binfo->scrnx, 10, 10, 0x07, "INT 2c (IRQ-2) : PS/2 Mourse");
-	for (;;)
-	{
-		io_hlt();
-	}
+
+	unsigned char data;
+	io_out8(PIC1_OCW2, 0x64); /* 通知PIC IRQ-12 的受理已经完成*/
+	io_out8(PIC0_OCW2, 0x62); /* 通知PIC IRQ-02 的受理已经完成*/
+	data = io_in8(0x0060);
+	print_font8_ascii(binfo->vram, binfo->scrnx, 20, 20, 0x07, data);
+
+	return;
+}
+
+void inthandler27(int *esp)
+/* PIC0中断的不完整策略 */
+/* 这个中断在Athlon64X2上通过芯片组提供的便利，只需执行一次 */
+/* 这个中断只是接收，不执行任何操作 */
+/* 为什么不处理？
+	→  因为这个中断可能是电气噪声引发的、只是处理一些重要的情况。*/
+{
+	io_out8(PIC0_OCW2, 0x67); /* 通知PIC的IRQ-07（参考7-1） */
+	return;
 }
 
 /**
@@ -423,6 +422,45 @@ void putblock8_8(char *vram, int vxsize, int pxsize,
 	return;
 }
 
+#define PORT_KEYDAT 0x0060
+#define PORT_KEYSTA 0x0064
+#define PORT_KEYCMD 0x0064
+#define KEYSTA_SEND_NOTREADY 0x02
+#define KEYCMD_WRITE_MODE 0x60
+#define KBC_MODE 0x47
+
+void wait_KBC_sendready(void)
+{
+	
+	// 死循环编译错误 只能使用给goto语句来实现死循环
+	start: 
+	if ((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) != 0)
+	{
+		goto start;
+	}
+
+	return;
+}
+
+void init_keyboard(void)
+{
+	wait_KBC_sendready();
+	io_out8(PORT_KEYCMD, KEYCMD_WRITE_MODE);
+	wait_KBC_sendready();
+	io_out8(PORT_KEYDAT, KBC_MODE);
+}
+
+#define KEYCMD_SENDTO_MOUSE 0xd4
+#define MOUSECMD_ENABLE 0xf4
+
+void enable_mouse(void)
+{
+	wait_KBC_sendready();
+	io_out8(PORT_KEYCMD, KEYCMD_SENDTO_MOUSE);
+	wait_KBC_sendready();
+	io_out8(PORT_KEYDAT, MOUSECMD_ENABLE);
+}
+
 void HariMain(void)
 {
 	struct Boot_info *boot_info = (struct Boot_info *)0x0ff0;
@@ -430,6 +468,9 @@ void HariMain(void)
 	init_gdt_idt();
 	init_pic();
 	io_sti();
+
+	io_out8(PIC0_IMR, 0xf9); /* 开放PIC1和键盘中断(11111001) */
+	io_out8(PIC1_IMR, 0xef); /* 开放鼠标中断(11101111) */
 
 	init_palette();
 	init_screen(boot_info->vram, boot_info->scrnx, boot_info->scrny);
@@ -439,24 +480,24 @@ void HariMain(void)
 	int mx = (boot_info->scrnx - 16) / 2; /* 计算画面的中心坐标*/
 	int my = (boot_info->scrny - 28 - 16) / 2;
 
-	init_mouse_cursor8(mour, 0x0f);
+	init_mouse_cursor8(mour, 0x0a);
 
-	io_out8(PIC0_IMR, 0xf9); /* 开放PIC1和键盘中断(11111001) */
-	io_out8(PIC1_IMR, 0xef); /* 开放鼠标中断(11101111) */
+	init_keyboard();
+	enable_mouse();
+
+	char keyBuffer[32];
+
+	fifo8_init(&keyboardBufffer, 32, keyBuffer);
 
 	unsigned char s[4];
 	for (;;)
 	{
 		// 判断缓冲区是否有数据
-		if (keyBoardBuffer.len != 0)
+		if (fifo8_status(&keyboardBufffer) != 0)
 		{
 			// 关闭中断 避免程序被打断
-			io_cli();
-			// 每次读取缓冲区第一位数据 因为是队列 肯定读第一位
-			unsigned char data = keyBoardBuffer.buffer[keyBoardBuffer.read];
-			keyBoardBuffer.read++;
-			keyBoardBuffer.len--;
-
+			// io_cli();
+			unsigned char data = fifo8_get(&keyboardBufffer);
 
 			sprintf(s, "%02X", data);
 			boxfill8(boot_info->vram, boot_info->scrnx, 0, 3, 15, 31, 0x0f);
@@ -464,14 +505,13 @@ void HariMain(void)
 
 			int i = 0;
 
-
 			// 缓冲区的数据读取完毕就可以继续接收其他中断了，例如键盘中断新数据会继续保存到缓冲区中 并不会对我们的程序有什么影响
-			io_sti();
+			// io_sti();
 		}
 		else
 		{
 			// 缓冲区数据处理完毕 开启中断
-			io_sti();
+			// io_sti();
 		}
 	}
 }

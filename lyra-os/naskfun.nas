@@ -17,11 +17,14 @@ GLOBAL _load_gdtr
 GLOBAL _load_idtr
 GLOBAL _asm_inthandler21
 GLOBAL _asm_inthandler2c
+GLOBAL _asm_inthandler27
 GLOBAL _io_sti
 GLOBAL _io_in8
 
+
 EXTERN	_inthandler21
 EXTERN	_inthandler2c
+EXTERN	_inthandler27
 
 
 [SECTION .text]
@@ -39,6 +42,22 @@ _asm_inthandler21:
 		MOV		DS,AX
 		MOV		ES,AX
 		CALL	_inthandler21
+		POP		EAX
+		POPAD
+		POP		DS
+		POP		ES
+		IRETD
+
+_asm_inthandler27:
+		PUSH	ES
+		PUSH	DS
+		PUSHAD
+		MOV		EAX,ESP
+		PUSH	EAX
+		MOV		AX,SS
+		MOV		DS,AX
+		MOV		ES,AX
+		CALL	_inthandler27
 		POP		EAX
 		POPAD
 		POP		DS
@@ -103,9 +122,8 @@ _load_idtr:
     lidt [esp + 6]
     ret
 
-
-_io_in8:
-	MOV	EDX,[ESP+4]
-	mov eax, 0
-	in al, dx
-	ret
+_io_in8:	; int io_in8(int port);
+		MOV		EDX,[ESP+4]		; port
+		MOV		EAX,0
+		IN		AL,DX
+		RET
