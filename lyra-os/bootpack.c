@@ -61,6 +61,7 @@ struct Gate_descriptor
 };
 
 struct Fifo8 keyboardBufffer;
+struct Fifo8 mouseBuffer;
 
 #define PIC0_ICW1 0x0020
 #define PIC0_OCW2 0x0020
@@ -151,11 +152,6 @@ void init_pic()
 void inthandler21(int *esp)
 /* 来自PS/2键盘的中断 */
 {
-	struct Boot_info *boot_info = (struct Boot_info *)0x0ff0;
-
-	boxfill8(boot_info->vram, boot_info->scrnx, 0, 3, 15, 31, 0x0f);
-	print_font8_ascii(boot_info->vram, boot_info->scrnx, 0, 3, 0x07, "keyboard interceptor");
-
 	unsigned char data = io_in8(0x0060);
 	fifo8_put(&keyboardBufffer, data);
 
@@ -174,7 +170,8 @@ void inthandler2c(int *esp)
 	io_out8(PIC1_OCW2, 0x64); /* 通知PIC IRQ-12 的受理已经完成*/
 	io_out8(PIC0_OCW2, 0x62); /* 通知PIC IRQ-02 的受理已经完成*/
 	data = io_in8(0x0060);
-	print_font8_ascii(binfo->vram, binfo->scrnx, 20, 20, 0x07, data);
+
+	fifo8_put(&mouseBuffer, data);
 
 	return;
 }
@@ -429,11 +426,14 @@ void putblock8_8(char *vram, int vxsize, int pxsize,
 #define KEYCMD_WRITE_MODE 0x60
 #define KBC_MODE 0x47
 
+/**
+ * 判断键盘控制电路是否准备完毕
+*/
 void wait_KBC_sendready(void)
 {
-	
-	// 死循环编译错误 只能使用给goto语句来实现死循环
-	start: 
+
+// 死循环编译错误 只能使用给goto语句来实现死循环
+start:
 	if ((io_in8(PORT_KEYSTA) & KEYSTA_SEND_NOTREADY) != 0)
 	{
 		goto start;
@@ -442,6 +442,10 @@ void wait_KBC_sendready(void)
 	return;
 }
 
+
+/**
+ * 初始化键盘电路
+*/
 void init_keyboard(void)
 {
 	wait_KBC_sendready();
@@ -453,6 +457,9 @@ void init_keyboard(void)
 #define KEYCMD_SENDTO_MOUSE 0xd4
 #define MOUSECMD_ENABLE 0xf4
 
+/**
+ * 激活鼠标
+*/
 void enable_mouse(void)
 {
 	wait_KBC_sendready();
@@ -486,8 +493,10 @@ void HariMain(void)
 	enable_mouse();
 
 	char keyBuffer[32];
+	char mouseBuf[128];
 
 	fifo8_init(&keyboardBufffer, 32, keyBuffer);
+	fifo8_init(&mouseBuffer, 128, mouseBuf);
 
 	unsigned char s[4];
 	for (;;)
@@ -496,22 +505,31 @@ void HariMain(void)
 		if (fifo8_status(&keyboardBufffer) != 0)
 		{
 			// 关闭中断 避免程序被打断
-			// io_cli();
+			io_cli();
 			unsigned char data = fifo8_get(&keyboardBufffer);
 
 			sprintf(s, "%02X", data);
 			boxfill8(boot_info->vram, boot_info->scrnx, 0, 3, 15, 31, 0x0f);
 			print_font8_ascii(boot_info->vram, boot_info->scrnx, 0, 3, 0x07, s);
-
-			int i = 0;
-
-			// 缓冲区的数据读取完毕就可以继续接收其他中断了，例如键盘中断新数据会继续保存到缓冲区中 并不会对我们的程序有什么影响
-			// io_sti();
 		}
-		else
+
+		// 处理鼠标中断
+		if (fifo8_status(&mouseBuffer) != 0)
 		{
-			// 缓冲区数据处理完毕 开启中断
-			// io_sti();
+			io_cli();
+			unsigned char data = fifo8_get(&mouseBuffer);
+
+			sprintf(s, "%02X", data);
+			boxfill8(boot_info->vram, boot_info->scrnx, 0, 3, 15, 31, 0x0f);
+			print_font8_ascii(boot_info->vram, boot_info->scrnx, 0, 3, 0x07, s);
+		}
+
+		// 缓冲区的数据读取完毕就可以继续接收其他中断了，例如键盘中断新数据会继续保存到缓冲区中 并不会对我们的程序有什么影响
+		// 判断鼠标 键盘缓冲区都为空了，那么就将程序挂起
+		if (fifo8_status(&keyboardBufffer) == 0 && fifo8_status(&mouseBuffer) == 0)
+		{
+			io_sti();
+			io_hlt();
 		}
 	}
 }
